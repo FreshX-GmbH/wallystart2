@@ -482,7 +482,7 @@ void copyTexture(int from, int to) {
 void resetTexture(int id) {
     SDL_Texture *t = textures[id]->tex;
     memset(textures[id], 0, sizeof(struct texture));
-    textures[id]->active = false;
+    // textures[id]->active = false;
     textures[id]->tex = t;
 }
 

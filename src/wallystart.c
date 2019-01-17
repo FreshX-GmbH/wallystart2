@@ -202,6 +202,7 @@ void* faderThread(void *p) {
             if(textures[i]->fadeloop > 0 && textures[i]->fadeover < 2) {
                 slog(DEBUG,LOG_CORE, "toggle fadeloop %d (%d)",i, textures[i]->fadeloop);
                 int src = textures[i]->fadesrc;
+                resetTexture(src);
                 textures[src]->fadeover = 255;
                 textures[src]->fadeloop = textures[i]->fadeloop - 1;
                 textures[src]->fadesrc = i;
@@ -367,6 +368,7 @@ bool processCommand(char *buf)
                     textures[0]->duration = delay;
                     textures[0]->active = true;
                     textures[0]->fadeStart = SDL_GetTicks();
+                    blockCommands = true;
                     // TODO : destroy textures
                 } else {
                     slog(DEBUG, LOG_CORE, "fadeloop <num> <delay> <fileA> <fileB>");
