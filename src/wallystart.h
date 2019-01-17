@@ -27,12 +27,13 @@ char *showText = NULL;
 int showFontSize = 0;
 int errno;
 
-Uint32 SDL_CMD_EVENT = 0;
-Uint32 SDL_UPD_EVENT = 0;
-Uint32 SDL_ALLOC_EVENT = 0;
-Uint32 SDL_DESTROY_EVENT = 0;
-Uint32 SDL_LOADIMAGE_EVENT = 0;
+Uint32 SDL_CMD_EVENT;
+Uint32 SDL_UPD_EVENT;
+Uint32 SDL_ALLOC_EVENT;
+Uint32 SDL_DESTROY_EVENT;
+Uint32 SDL_LOADIMAGE_EVENT;
 
+// Pascal style
 struct texts *textFields[TEXT_SLOTS];
 struct texture *textures[TEXTURE_SLOTS];
 

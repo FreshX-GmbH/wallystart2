@@ -269,6 +269,9 @@ bool loadSDL()
         SDL_TEXTUREACCESS_TARGET, 
         w, 
         h);
+
+    SDL_SetTextureBlendMode(textures[2]->tex, SDL_BLENDMODE_BLEND);
+
     return true;
 }
 
@@ -490,7 +493,8 @@ void destroyTexture(int id) {
         slog(DEBUG, LOG_CORE, "Freeing old tex.");
         SDL_DestroyTexture(t->tex);
         t->active = false;
-        update(-1);
+        dirty = true;
+        // update(-1);
     }
 }
 
@@ -506,7 +510,9 @@ void clearText(int id) {
             t->str = 0;
         }
         t->active = false;
-        update(0);
+        dirty = true;
+        // Update sollte hier nicht stattfinden (global)
+        // update(0);
     }
 }
 
@@ -535,6 +541,7 @@ bool setupText(int id, int x, int y, int size, char *color, long timeout, char *
     t->destroy = false;
     t->str = str;
     t->timeout = timeout;
+    t->created = SDL_GetTicks();
 
     hexToColor(color, &t->color);
 
@@ -551,6 +558,7 @@ bool setupText(int id, int x, int y, int size, char *color, long timeout, char *
 
     surf = TTF_RenderUTF8_Blended(showFont, str, t->color);
     t->tex = SDL_CreateTextureFromSurface(renderer, surf);
+    SDL_SetTextureBlendMode(t->tex, SDL_BLENDMODE_BLEND);
 
     if (!t->tex)
         return false;
@@ -591,10 +599,10 @@ bool initThreadsAndHandlers(void *start){
         return false;
     }
     // start a timer thread
-    if (pthread_create(&timer_thr, NULL, &timerThread, NULL) != 0) {
-        slog(ERROR, LOG_CORE, "Failed to create timer thread!");
-        return false;
-    }
+    //if (pthread_create(&timer_thr, NULL, &timerThread, NULL) != 0) {
+    //    slog(ERROR, LOG_CORE, "Failed to create timer thread!");
+    //    return false;
+    //}
 
     return true;
 }

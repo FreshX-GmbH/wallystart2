@@ -2,6 +2,10 @@
 
 bool blockCommands = false;
 long updateCounter = 0;
+bool dirty = false;
+Uint32 startTime;
+
+#define FPS 25
 
 int main(int argc, char *argv[])
 {
@@ -22,41 +26,103 @@ int main(int argc, char *argv[])
     if(!initThreadsAndHandlers(start))
         exit(1);
 
-    while (!quit && SDL_WaitEvent(&event) != 0) {
-        eventLoop = true;
-        if (event.type == SDL_UPD_EVENT) {
-            // keep the queue short
-            updateCounter++;
-            if(updateCounter % 3)
-                SDL_FlushEvent(SDL_UPD_EVENT);
-            update(event.user.code);
-            continue;
+    startTime = SDL_GetTicks();
+    // TODO : what happens in case wait_event returns 0?
+    // while (!quit && SDL_WaitEvent(&event) != 0) {
+    while (!quit){
+        dirty = false;
+        
+        while(SDL_PollEvent(&event) > 0) {
+            eventLoop = true;
+
+            // TODO: use switch instead of if/then
+            if(event.type == SDL_UPD_EVENT) {
+                dirty = true;
+            } else if (event.type == SDL_LOADIMAGE_EVENT) {
+                // TODO: Free texture if used
+                slog(DEBUG, LOG_CORE, "Loading image %s to slot %d", event.user.data1, event.user.code);
+                textures[event.user.code]->tex = loadImage(event.user.data1);
+                free(event.user.data1);
+            // TODO : alloc and destroy Textures via message
+            // } else if (event.type == SDL_ALLOC_EVENT) {
+            // continue;
+            // TODO : alloc and destroy Textures via message
+            } else if (event.type == SDL_DESTROY_EVENT) {
+                slog(DEBUG, LOG_CORE, "Destroy texture %d.", event.user.code);
+                SDL_DestroyTexture(event.user.data1);
+                dirty = true;
+            } else {
+                slog(DEBUG, LOG_CORE, "Uncaught generic SDL event %d.", event.type);
+            }
         }
-        if (event.type == SDL_LOADIMAGE_EVENT) {
-            slog(DEBUG, LOG_CORE, "Loading image %s to slot %d", event.user.data1, event.user.code);
-            textures[event.user.code]->tex = loadImage(event.user.data1);
-            free(event.user.data1);
-            continue;
+
+        // Kill textSlots after timeout
+        for (int i = 0; i < TEXTURE_SLOTS; i++) {
+            //if(textures[i]->active && diff > textures[i]->timeout) {
+            //    textures[i]->active = false;
+            //    textures[i]->destroy = true;
+            //    dirty = true;
+            //}
+            if(textures[i]->fadeout > 0) {
+                blockCommands = true;
+                Uint32 diff = SDL_GetTicks() - textures[i]->fadeStart;
+                float animationProgress = (float)diff / textures[i]->duration; 
+                slog(DEBUG, LOG_CORE, "Found fadeout %d (progress %f)", textures[i]->fadein, animationProgress);
+                if (animationProgress > 1) {
+                    textures[i]->fadeout = 0;
+                    textures[i]->active = false;
+                    // textures[i]->destroy = false;
+                    if(textures[i]->fadeloop > 0){
+                        int srcId = textures[i]->fadesrc;
+                        textures[srcId]->fadein = 1;
+                        textures[srcId]->fadesrc = i;
+                        textures[srcId]->fadeStart = SDL_GetTicks();
+                    } else {
+                        blockCommands = false;
+                    }
+                } else {
+                    textures[i]->alpha = (int) (255 - 255 * animationProgress);
+                    dirty = true;
+                }
+            } else if(textures[i]->fadein > 0) {
+                blockCommands = true;
+                Uint32 diff = SDL_GetTicks() - textures[i]->fadeStart;
+                float animationProgress = (float)diff / textures[i]->duration; 
+                slog(DEBUG, LOG_CORE, "Found fadein %d (progress %f)", textures[i]->fadein, animationProgress);
+                if (animationProgress > 1) {
+                    textures[i]->fadein = 0;
+                    int srcId = textures[i]->fadesrc;
+                    textures[srcId]->active = false;
+                    // textures[i]->destroy = false;
+                    if(textures[i]->fadeloop > 0){
+                        int srcId = textures[i]->fadesrc;
+                        textures[srcId]->fadeout = 1;
+                        textures[srcId]->fadesrc = i;
+                        textures[srcId]->fadeStart = SDL_GetTicks();
+                    } else {
+                        blockCommands = false;
+                    }
+                } else {
+                    textures[i]->alpha = (int) 255 * animationProgress;
+                    dirty = true;
+                }
+            }
+            if(i>0 && textFields[i]-> active == true) {
+                usleep(1);
+            }
         }
-        // TODO : alloc and destroy Textures via message
-        if (event.type == SDL_ALLOC_EVENT) {
-            continue;
-        }
-        // TODO : alloc and destroy Textures via message
-        if (event.type == SDL_DESTROY_EVENT) {
-            slog(DEBUG, LOG_CORE, "Destroy texture %d.", event.user.code);
-            SDL_DestroyTexture(event.user.data1);
+
+        if(dirty) 
             update(-1);
-            continue;
-        }
-        if (event.type == SDL_CMD_EVENT) {
-            slog(DEBUG, LOG_CORE, "CMD event %s.", event.user.data1);
-            // processCommand(event.user.data1);
-            // free(event.user.data1);
-            continue;
-        }
-        // update(0);
-        slog(DEBUG, LOG_CORE, "Uncaught generic SDL event %d.", event.type);
+
+        // FPS handling
+        int fpsDiff = startTime - SDL_GetTicks();
+        if(fpsDiff < 1000000/FPS)
+            usleep(1000000/FPS - fpsDiff);
+        else
+            slog(DEBUG, LOG_CORE, "FPS miss");
+
+
     }
 
     cleanupGFX();
@@ -65,54 +131,42 @@ int main(int argc, char *argv[])
 }
 
 // bool update(SDL_Texture *tex)
-bool update(int texId)
+void update(int texId)
 {
-    int i;
+    int i = 0;
 
-    // New mechanism (loop over all dirty textures)
-    if(texId == -1) {
-        for(i = 0; i < TEXTURE_SLOTS; i++) {
-            if(textures[i]->dirty && textures[i]->active) {
-                update(i);
-            }
+    for(i = 0; i < TEXTURE_SLOTS; i++) {
+
+        SDL_Texture *tex = textures[i]->tex;
+        int alpha = textures[i]->alpha;
+        // TODO: rename global w, h, not descriptive;
+        SDL_Rect fullSize = {0, 0, w, h};
+
+        // slog(TRACE,LOG_CORE,"Update %d (alpha:%d)", texId, alpha);
+
+        if(textures[i]->fadein) {
+            SDL_SetTextureColorMod(tex, alpha, alpha, alpha);
+            // slog(TRACE,LOG_CORE,"Fadein/out");
         }
-        return true;
+        if(textures[i]->fadeover) {
+            SDL_SetTextureColorMod(tex, alpha, alpha, alpha);
+            // slog(TRACE,LOG_CORE,"Fadeover %d", texId);
+            //int srcId = textures[i]->fadesrc;
+            //SDL_Texture *src = textures[srcId]->tex;
+            //tex = fadeOver(src, tex, textures[2]->tex, textures[i]->alpha);
+        }
+
+        if (!rot) {
+            SDL_RenderCopy(renderer, tex, NULL, &fullSize);
+        } else {
+            SDL_RenderCopyEx(renderer, tex, NULL, NULL, rot, NULL, SDL_FLIP_NONE);
+        }
     }
-
-    if(texId > TEXTURE_SLOTS) {
-        slog(ERROR, LOG_CORE, "Update failure for slot %d (not existand)", texId);
-        return 0;
-    }
-
-    SDL_Texture *tex = textures[texId]->tex;
-    int alpha = textures[texId]->alpha;
-    SDL_Rect fullSize = {0, 0, w, h};
-
-    // slog(TRACE,LOG_CORE,"Update %d (alpha:%d)", texId, alpha);
-
-    if(textures[texId]->fadein) {
-        SDL_SetTextureColorMod(tex, alpha, alpha, alpha);
-        // slog(TRACE,LOG_CORE,"Fadein/out");
-    }
-    if(textures[texId]->fadeover) {
-        // slog(TRACE,LOG_CORE,"Fadeover %d", texId);
-        int srcId = textures[texId]->fadesrc;
-        SDL_Texture *src = textures[srcId]->tex;
-        tex = fadeOver(src, tex, textures[2]->tex, textures[texId]->alpha);
-    }
-
-    if (!rot) {
-        SDL_RenderCopy(renderer, tex, NULL, &fullSize);
-    } else {
-        SDL_RenderCopyEx(renderer, tex, NULL, NULL, rot, NULL, SDL_FLIP_NONE);
-    }
-
-    textures[texId]->dirty = false;
 
     renderTexts();
     SDL_RenderPresent(renderer);
 
-    return true;
+    return;
 }
 
 void* faderThread(void *p) {
@@ -123,27 +177,27 @@ void* faderThread(void *p) {
     while(!quit) {
         for (i = 0; i < TEXTURE_SLOTS; i++) {
             SDL_zero(sdlevent);
-            if(textures[i]->fadein == 1) {
-                slog(DEBUG, LOG_CORE, "Found last fadein %d. Clearing.", textures[i]->fadein);
-                resetTexture(i);
-                textures[i]->alpha = 255;
-                sdlevent.type = SDL_UPD_EVENT;
-                sdlevent.user.code = i;
-                SDL_PushEvent(&sdlevent);
-                blockCommands = false;
-            }
-            if(textures[i]->fadein > 0) {
-                // slog(DEBUG, LOG_CORE, "Found fadein %d (delay %d)", textures[i]->fadein, textures[i]->delay);
-                textures[i]->fadein -= 1;
-                textures[i]->dirty = 1;
-                textures[i]->alpha = 255 - textures[i]->fadein;
-                sdlevent.type = SDL_UPD_EVENT;
-                sdlevent.user.code = i;
-                SDL_PushEvent(&sdlevent);
-                skipSleep = true;
-                blockCommands = true;
-                usleep(textures[i]->delay);
-            }
+            // if(textures[i]->fadein == 1) {
+            //     slog(DEBUG, LOG_CORE, "Found last fadein %d. Clearing.", textures[i]->fadein);
+            //     resetTexture(i);
+            //     textures[i]->alpha = 255;
+            //     sdlevent.type = SDL_UPD_EVENT;
+            //     sdlevent.user.code = i;
+            //     SDL_PushEvent(&sdlevent);
+            //     blockCommands = false;
+            // }
+            // if(textures[i]->fadein > 0) {
+            //     // slog(DEBUG, LOG_CORE, "Found fadein %d (delay %d)", textures[i]->fadein, textures[i]->duration);
+            //     textures[i]->fadein -= 1;
+            //     textures[i]->dirty = 1;
+            //     textures[i]->alpha = 255 - textures[i]->fadein;
+            //     sdlevent.type = SDL_UPD_EVENT;
+            //     sdlevent.user.code = i;
+            //     SDL_PushEvent(&sdlevent);
+            //     skipSleep = true;
+            //     blockCommands = true;
+            //     usleep(textures[i]->duration);
+            // }
 
             if(textures[i]->fadeloop > 0 && textures[i]->fadeover < 2) {
                 slog(DEBUG,LOG_CORE, "toggle fadeloop %d (%d)",i, textures[i]->fadeloop);
@@ -152,7 +206,8 @@ void* faderThread(void *p) {
                 textures[src]->fadeloop = textures[i]->fadeloop - 1;
                 textures[src]->fadesrc = i;
                 textures[src]->active = true;
-                textures[src]->delay = textures[i]->delay;
+                textures[src]->fadeStart = SDL_GetTicks();
+                textures[src]->duration = textures[i]->duration;
                 resetTexture(i);
                 blockCommands = true;
                 continue;
@@ -180,7 +235,7 @@ void* faderThread(void *p) {
                 blockCommands = false;
             }
             if(textures[i]->fadeover > 0) {
-                // slog(DEBUG, LOG_CORE, "Found fadeover from %d to %d : %d (delay %d)", textures[i]->fadesrc, i, textures[i]->fadeover, textures[i]->delay);
+                // slog(DEBUG, LOG_CORE, "Found fadeover from %d to %d : %d (delay %d)", textures[i]->fadesrc, i, textures[i]->fadeover, textures[i]->duration);
                 textures[i]->fadeover -= 1;
                 textures[i]->dirty = 1;
                 textures[i]->alpha = textures[i]->fadeover;
@@ -189,7 +244,7 @@ void* faderThread(void *p) {
                 SDL_PushEvent(&sdlevent);
                 skipSleep = true;
                 blockCommands = true;
-                usleep(textures[i]->delay);
+                usleep(textures[i]->duration);
             }
  
         }
@@ -204,7 +259,7 @@ void* faderThread(void *p) {
 bool processCommand(char *buf)
 {
     int logSize = h / 56;
-    int i;
+    // int i;
     int validCmd = 0;
     bool nextLine = true;
     char *lineBreak;
@@ -244,7 +299,8 @@ bool processCommand(char *buf)
                     SDL_PushEvent(&sdlevent);
                     textures[0]->active = true;
                     textures[0]->fadein = 255;
-                    textures[0]->delay = delay;
+                    textures[0]->duration = delay;
+                    textures[0]->fadeStart = SDL_GetTicks();
                     blockCommands = true;
                 } else {
                     slog(DEBUG, LOG_CORE, "fadein <delay> <file>");
@@ -259,7 +315,8 @@ bool processCommand(char *buf)
                     slog(DEBUG, LOG_CORE, "Fadeout with delay %u", delay);
                     textures[0]->active = true;
                     textures[0]->fadeout = 255;
-                    textures[0]->delay = delay;
+                    textures[0]->duration = delay;
+                    textures[0]->fadeStart = SDL_GetTicks();
                     blockCommands = true;
                     // TODO : destroy texture
                 } else {
@@ -280,8 +337,9 @@ bool processCommand(char *buf)
                     SDL_PushEvent(&sdlevent);
                     textures[1]->fadeover = 255;
                     textures[1]->fadesrc = 0;
-                    textures[1]->delay = delay;
+                    textures[1]->duration = delay;
                     textures[1]->active = true;
+                    textures[1]->fadeStart = SDL_GetTicks();
                     blockCommands = true;
                 } else {
                     slog(DEBUG, LOG_CORE, "fadeover <delay> <file>");
@@ -306,8 +364,9 @@ bool processCommand(char *buf)
                     textures[0]->fadeloop = 2 * loop;
                     textures[0]->fadeover = 255;
                     textures[0]->fadesrc = 1;
-                    textures[0]->delay = delay;
+                    textures[0]->duration = delay;
                     textures[0]->active = true;
+                    textures[0]->fadeStart = SDL_GetTicks();
                     // TODO : destroy textures
                 } else {
                     slog(DEBUG, LOG_CORE, "fadeloop <num> <delay> <fileA> <fileB>");

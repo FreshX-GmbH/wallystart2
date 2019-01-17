@@ -34,7 +34,7 @@ void cleanupGFX();
 void renderTexts(void);
 bool setupText(int id, int x, int y, int size, char *color, long timeout, char *str);
 TTF_Font *loadFont(char *file, int size);
-bool update(int id);
+void update(int id);
 SDL_Texture* loadImage(char *name);
 void closeSDL();
 SDL_Texture* renderLog(char *strTmp,int *w, int *h);
@@ -76,7 +76,8 @@ typedef struct texture {
   int fadeloop;
   bool dirty;
   // struct timespec fadedelay;
-  long delay;
+  long duration;
+  uint32_t fadeStart;
 } texture;
 
 typedef struct texts {
@@ -93,8 +94,10 @@ typedef struct texts {
   bool active;
   bool destroy;
   bool dirty;
+  uint32_t created;
 } texts;
 
+extern bool dirty;
 extern SDL_Window* window;
 extern SDL_Renderer* renderer;
 extern TTF_Font *showFont;
