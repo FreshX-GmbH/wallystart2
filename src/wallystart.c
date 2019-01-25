@@ -57,7 +57,8 @@ int main(int argc, char *argv[])
         }
 
         // Kill textSlots after timeout
-        for (int i = 0; i < TEXTURE_SLOTS; i++) {
+	int i;
+        for (i = 0; i < TEXTURE_SLOTS; i++) {
             //if(textures[i]->active && diff > textures[i]->timeout) {
             //    textures[i]->active = false;
             //    textures[i]->destroy = true;
