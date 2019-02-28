@@ -50,7 +50,7 @@ void clearText(int id);
 void copyTexture(int from, int to);
 void destroyTexture(int id);
 void resetTexture(int id);
-
+bool makeTexture(int id);
 char *repl_str(const char *str, const char *from, const char *to);
 int sgetline(int fd, char ** out);
 
@@ -72,7 +72,8 @@ typedef struct texture {
   int fadein;
   int fadeout;
   int fadeover;
-  int fadesrc;
+  int fadeTarget;
+  int fadeOrigin;
   int fadeloop;
   bool dirty;
   // struct timespec fadedelay;

@@ -394,13 +394,12 @@ bool initGFX(void)
         textFields[i]->active = false;
         textFields[i]->destroy = false;
     }
-    bytes = sizeof(struct texture);
+
+    memset(&textures, 0, sizeof(void *) * TEXTURE_SLOTS);
     for (i = 0; i < TEXTURE_SLOTS; i++) {
-        textures[i] = malloc(bytes);
-        memset(textures[i], 0, bytes);
-        textures[i]->active = false;
-        textFields[i]->destroy = false;
+        makeTexture(i);
     }
+
     slog(DEBUG, LOG_CORE, "Initialized %d bytes", bytes * TEXT_SLOTS);
 
     dumpModes();
@@ -434,7 +433,7 @@ void cleanupGFX() {
         if(textures[i]->tex) {
             destroyTexture(i);
         }
-        free(textures[i]);
+        // free(textures[i]);
     } 
     for (i = 0; i < TEXT_SLOTS; i++)
     {
@@ -472,6 +471,15 @@ void renderTexts(void)
     }
 }
 
+bool makeTexture(int i) {
+    int bytes = sizeof(struct texture);
+    textures[i] = malloc(bytes);
+    memset(textures[i], 0, bytes);
+    textures[i]->active = false;
+    textFields[i]->destroy = false;
+    return true;
+}
+
 void copyTexture(int from, int to) {
     texture *f = textures[from];
     texture *t = textures[to];
@@ -496,6 +504,7 @@ void destroyTexture(int id) {
         dirty = true;
         // update(-1);
     }
+    free(textures[id]);
 }
 
 void clearText(int id) {
@@ -594,10 +603,10 @@ bool initThreadsAndHandlers(void *start){
         return false;
     }
     // start a fader thread
-    if (pthread_create(&fader_thr, NULL, &faderThread, NULL) != 0) {
-        slog(ERROR, LOG_CORE, "Failed to create fader thread!");
-        return false;
-    }
+    // if (pthread_create(&fader_thr, NULL, &faderThread, NULL) != 0) {
+    //    slog(ERROR, LOG_CORE, "Failed to create fader thread!");
+    //    return false;
+    // }
     // start a timer thread
     //if (pthread_create(&timer_thr, NULL, &timerThread, NULL) != 0) {
     //    slog(ERROR, LOG_CORE, "Failed to create timer thread!");
