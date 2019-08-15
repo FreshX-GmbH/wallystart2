@@ -6,5 +6,5 @@ sleep 3
 color ffffff
 fadeover 390 $CONF/wallyd.d/images/wally-black.png
 fadeover 390 $CONF/wallyd.d/images/wally-white-core-bar.png
-fadeloop 10 200 $CONF/wallyd.d/images/wally-white-core-bar.png $CONF/wallyd.d/images/wally-white-core-recovery.png
+fadeloop 30 200 $CONF/wallyd.d/images/wally-white-core-bar.png $CONF/wallyd.d/images/wally-white-core-recovery.png
 log WallyCore 2.2 Base system ready.
