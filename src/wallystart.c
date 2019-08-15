@@ -31,9 +31,9 @@ int main(int argc, char *argv[])
     // while (!quit && SDL_WaitEvent(&event) != 0) {
     while (!quit){
         dirty = false;
-        
+        eventLoop = true;
+
         while(SDL_PollEvent(&event) > 0) {
-            eventLoop = true;
 
             // TODO: use switch instead of if/then
             if(event.type == SDL_UPD_EVENT) {
