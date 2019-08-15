@@ -100,8 +100,10 @@ configure_file( "${CMAKE_CURRENT_SOURCE_DIR}/src/autoversion.h.in" "${CMAKE_CURR
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/etc/wallyd.conf" DESTINATION ${SYSCONFDIR})
 
 if("${RASPBERRY}" STREQUAL "1")
-  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/etc/wallystart.conf.pi" DESTINATION "${SYSCONFDIR}/wallystart.conf")
-  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/etc/wallystart.conf.recovery.pi" DESTINATION "${SYSCONFDIR}/wallystart.conf.recovery")
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/etc/wallystart.conf.pi" DESTINATION "${SYSCONFDIR}")
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/etc/wallystart.conf.recovery.pi" DESTINATION "${SYSCONFDIR}")
+  execute_process(COMMAND "mv" "wallystart.conf.pi wallystart.conf" WORKING_DIRECTORY "${SYSCONFDIR}/etc")
+  execute_process(COMMAND "mv" "wallystart.conf.recovery.pi wallystart.conf.recovery" WORKING_DIRECTORY "${SYSCONFDIR}/etc")
 else()
   install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/etc/wallystart.conf" DESTINATION ${SYSCONFDIR})
   install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/etc/wallystart.conf.recovery" DESTINATION ${SYSCONFDIR})
