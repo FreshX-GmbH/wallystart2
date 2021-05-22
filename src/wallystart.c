@@ -41,6 +41,9 @@ int main(int argc, char *argv[])
             } else if (event.type == SDL_LOADIMAGE_EVENT) {
                 // TODO: Free texture if used
                 slog(DEBUG, LOG_CORE, "Loading image %s to slot %d", event.user.data1, event.user.code);
+                if(textures[event.user.code]) {
+                    SDL_DestroyTexture(event.user.data1);
+                }
                 textures[event.user.code]->tex = loadImage(event.user.data1);
                 textures[event.user.code]->alpha = 255;
                 free(event.user.data1);
