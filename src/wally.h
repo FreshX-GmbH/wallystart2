@@ -22,7 +22,7 @@
 
 #define TEXT_SLOTS 255
 #define TEXTURE_SLOTS 3
-#define VERSION "0.4"
+#define VERSION "0.5"
 #define BASE "."
 #define FONT "/etc/wallyd.d/fonts/Cairo-Regular.ttf"
 #define START WALLYD_CONFDIR"/wallystart.conf"
